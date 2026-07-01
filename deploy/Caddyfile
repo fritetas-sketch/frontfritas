@@ -1,0 +1,21 @@
+# Reverse proxy for FrontFritas at front.fritas.fr
+#
+# Caddy gets a free TLS certificate automatically and proxies BOTH the static
+# client and the WebSocket to the Node server on localhost:8787. Because the
+# game and the socket share the same origin, the client connects to
+# wss://front.fritas.fr on its own — no extra config needed.
+#
+# Usage:
+#   1) npm ci && npm run build           # build the client into dist/
+#   2) PORT=8787 npm run server          # run the game server (e.g. via systemd/pm2)
+#   3) caddy run --config deploy/Caddyfile
+#
+# Point an A/AAAA DNS record for front.fritas.fr at this machine first.
+
+front.fritas.fr {
+	encode zstd gzip
+
+	# WebSocket upgrades and HTTP both go to the Node server, which serves
+	# ../dist statically and handles /ws upgrades on the same port.
+	reverse_proxy localhost:8787
+}

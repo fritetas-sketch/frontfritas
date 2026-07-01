@@ -28,13 +28,19 @@ export interface Attack {
   seen: Set<number>;
 }
 
+/** Description used to build a player at game start (human or bot). */
+export interface PlayerDesc {
+  name: string;
+  color: RGB;
+  isBot: boolean;
+}
+
 export interface GameConfig {
   width: number;
   height: number;
-  bots: number;
-  playerName: string;
-  playerColor: RGB;
   seed: number;
+  /** Full roster, in id order (index === player id). */
+  roster: PlayerDesc[];
 }
 
 export const WATER = 0;

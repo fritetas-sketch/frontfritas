@@ -1,4 +1,4 @@
-import type { RGB } from "./types.ts";
+import type { PlayerDesc, RGB } from "./types.ts";
 
 /** Distinct, readable colors for players (the human picks one, bots take the rest). */
 export const PALETTE: RGB[] = [
@@ -50,4 +50,25 @@ export function botName(i: number): string {
 
 export function darken([r, g, b]: RGB, f = 0.55): RGB {
   return [Math.round(r * f), Math.round(g * f), Math.round(b * f)];
+}
+
+const key = (c: RGB) => c.join(",");
+
+/** Pick a palette color not already used by any human. */
+export function freeColor(used: Set<string>, i: number): RGB {
+  const pool = PALETTE.filter((c) => !used.has(key(c)));
+  return (pool[i % pool.length] ?? PALETTE[i % PALETTE.length]).slice() as RGB;
+}
+
+/** Build a full roster: the given humans followed by `botCount` bots,
+ *  assigning bots distinct colors and names. */
+export function fillBots(humans: PlayerDesc[], botCount: number): PlayerDesc[] {
+  const used = new Set(humans.map((h) => key(h.color)));
+  const roster: PlayerDesc[] = [...humans];
+  for (let i = 0; i < botCount; i++) {
+    const color = freeColor(used, i);
+    used.add(key(color));
+    roster.push({ name: botName(i), color, isBot: true });
+  }
+  return roster;
 }

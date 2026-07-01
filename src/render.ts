@@ -1,4 +1,5 @@
-import { Game, LAND, NEUTRAL } from "./game.ts";
+import { LAND, NEUTRAL } from "./types.ts";
+import type { WorldView } from "./world.ts";
 
 const WATER_DEEP = [12, 26, 54];
 const WATER_SHALLOW = [24, 52, 92];
@@ -18,7 +19,7 @@ export class Renderer {
   private img: ImageData;
   cam: Camera = { scale: 1, offsetX: 0, offsetY: 0 };
 
-  constructor(canvas: HTMLCanvasElement, private game: Game) {
+  constructor(canvas: HTMLCanvasElement, private game: WorldView) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d")!;
     this.buffer = document.createElement("canvas");

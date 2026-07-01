@@ -66,8 +66,31 @@
             </select>
           </label>
 
-          <button id="play-btn">Jouer</button>
+          <button id="play-btn">Jouer en solo</button>
+
+          <div class="mp-block">
+            <div class="or">— ou en ligne —</div>
+            <button id="host-btn" class="secondary">Créer un salon (hôte)</button>
+            <div class="join-row">
+              <input id="code-input" type="text" maxlength="4" placeholder="CODE" autocomplete="off" />
+              <button id="join-btn" class="secondary">Rejoindre</button>
+            </div>
+          </div>
+
+          <p id="menu-error" class="err hidden"></p>
           <p class="credits">Inspiré d'OpenFront.io · flèches ZQSD/WASD pour naviguer</p>
+        </div>
+      </div>
+
+      <!-- Salon multijoueur -->
+      <div id="lobby" class="hidden">
+        <div class="menu-card">
+          <h2>Salon <span id="lobby-code" class="code"></span></h2>
+          <p class="tagline">Partage ce code (ou le lien) avec tes viewers.</p>
+          <div id="lobby-members"></div>
+          <button id="lobbystart-btn">Démarrer la partie</button>
+          <p id="lobby-wait" class="credits hidden">En attente de l'hôte…</p>
+          <button id="lobbyleave-btn" class="secondary">Quitter le salon</button>
         </div>
       </div>
 

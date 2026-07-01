@@ -1,5 +1,5 @@
 import { generateTerrain } from "./mapgen.ts";
-import { botName, darken, PALETTE } from "./palette.ts";
+import { darken, freeColor } from "./palette.ts";
 import { mulberry32 } from "./rng.ts";
 import {
   type Attack,
@@ -34,10 +34,12 @@ export class Game {
 
   readonly players: Player[] = [];
   readonly attacks = new Map<number, Attack>();
+  /** Which player id the local UI controls (solo). Ignored server-side. */
   humanId = 0;
 
   gameOver = false;
-  won = false;
+  /** Id of the winning player once the game is over, else -1. */
+  winnerId = -1;
   /** Set true whenever the map buffer needs re-rendering. */
   dirty = true;
 
@@ -65,38 +67,28 @@ export class Game {
 
   // ---------------------------------------------------------------- players
   private createPlayers(cfg: GameConfig) {
-    // Human is player 0.
     const usedColors = new Set<string>();
     const key = (c: number[]) => c.join(",");
 
-    this.players.push({
-      id: 0,
-      name: cfg.playerName || "Toi",
-      color: cfg.playerColor,
-      border: darken(cfg.playerColor),
-      isBot: false,
-      troops: CFG.startTroops,
-      tiles: 0,
-      alive: true,
-      cooldown: 0,
-    });
-    usedColors.add(key(cfg.playerColor));
+    cfg.roster.forEach((desc, id) => {
+      // Ensure every player has a unique color (fixes clashes between humans).
+      let color = desc.color;
+      if (usedColors.has(key(color))) color = freeColor(usedColors, id);
+      usedColors.add(key(color));
 
-    const pool = PALETTE.filter((c) => !usedColors.has(key(c)));
-    for (let i = 0; i < cfg.bots; i++) {
-      const color = pool[i % pool.length];
       this.players.push({
-        id: i + 1,
-        name: botName(i),
+        id,
+        name: desc.name || (desc.isBot ? "Bot" : "Joueur"),
         color,
         border: darken(color),
-        isBot: true,
+        isBot: desc.isBot,
         troops: CFG.startTroops,
         tiles: 0,
         alive: true,
-        cooldown: this.rand() * 2,
+        cooldown: desc.isBot ? this.rand() * 2 : 0,
       });
-    }
+    });
+
     this.centroids.length = this.players.length;
     for (let i = 0; i < this.players.length; i++) this.centroids[i] = [0, 0];
   }
@@ -104,39 +96,64 @@ export class Game {
   private spawnPlayers() {
     const spots: number[] = [];
     const minDist = Math.max(this.w, this.h) / (this.players.length * 0.5 + 3);
+    const r = CFG.startRadius;
+    // A good spot has mostly-land surroundings so everyone gets a fair start.
+    const minLand = Math.floor((r * r * Math.PI) * 0.62);
 
     for (const p of this.players) {
-      let placed = false;
-      for (let tries = 0; tries < 4000 && !placed; tries++) {
+      let best = -1;
+      let bestLand = -1;
+      for (let tries = 0; tries < 3000; tries++) {
         const x = Math.floor(this.rand() * this.w);
         const y = Math.floor(this.rand() * this.h);
         const i = y * this.w + x;
         if (this.terrain[i] !== LAND || this.owner[i] !== NEUTRAL) continue;
+
         let ok = true;
         for (const s of spots) {
-          const sx = s % this.w;
-          const sy = Math.floor(s / this.w);
-          if (Math.hypot(sx - x, sy - y) < minDist) {
+          if (Math.hypot((s % this.w) - x, ((s / this.w) | 0) - y) < minDist) {
             ok = false;
             break;
           }
         }
         if (!ok) continue;
-        this.claimBlob(x, y, CFG.startRadius, p.id);
-        spots.push(i);
-        placed = true;
+
+        const land = this.landAround(x, y, r);
+        if (land > bestLand) {
+          bestLand = land;
+          best = i;
+          if (land >= minLand) break; // good enough, stop searching
+        }
       }
-      // Fallback: any free land tile.
-      if (!placed) {
+      if (best >= 0) {
+        this.claimBlob(best % this.w, (best / this.w) | 0, r, p.id);
+        spots.push(best);
+      } else {
+        // Fallback: any free land tile.
         for (let i = 0; i < this.terrain.length; i++) {
           if (this.terrain[i] === LAND && this.owner[i] === NEUTRAL) {
-            this.claimBlob(i % this.w, Math.floor(i / this.w), 2, p.id);
+            this.claimBlob(i % this.w, (i / this.w) | 0, 2, p.id);
+            spots.push(i);
             break;
           }
         }
       }
     }
     this.dirty = true;
+  }
+
+  private landAround(cx: number, cy: number, r: number): number {
+    let land = 0;
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (dx * dx + dy * dy > r * r) continue;
+        const x = cx + dx;
+        const y = cy + dy;
+        if (x < 0 || y < 0 || x >= this.w || y >= this.h) continue;
+        if (this.terrain[y * this.w + x] === LAND) land++;
+      }
+    }
+    return land;
   }
 
   private claimBlob(cx: number, cy: number, r: number, id: number) {
@@ -409,13 +426,9 @@ export class Game {
 
   private checkGameOver() {
     const alive = this.players.filter((p) => p.alive);
-    const human = this.players[this.humanId];
-    if (!human.alive) {
+    if (alive.length <= 1) {
       this.gameOver = true;
-      this.won = false;
-    } else if (alive.length <= 1) {
-      this.gameOver = true;
-      this.won = true;
+      this.winnerId = alive[0]?.id ?? -1;
     }
   }
 
