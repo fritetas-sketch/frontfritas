@@ -1,0 +1,29 @@
+# systemd unit for the FrontFritas game server.
+#
+# Install:
+#   sudo cp deploy/frontfritas.service /etc/systemd/system/frontfritas.service
+#   # edit WorkingDirectory / User / paths below to match your VPS
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now frontfritas
+#   sudo systemctl status frontfritas
+#
+# Logs:  journalctl -u frontfritas -f
+
+[Unit]
+Description=FrontFritas game server
+After=network.target
+
+[Service]
+Type=simple
+# The user that owns the checkout (create a dedicated user in production).
+User=frontfritas
+WorkingDirectory=/opt/frontfritas
+# Node must be on PATH; adjust if you use nvm (point ExecStart at the full path).
+ExecStart=/usr/bin/node dist-server/server.mjs
+Environment=NODE_ENV=production
+Environment=PORT=8787
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

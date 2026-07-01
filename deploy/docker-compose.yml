@@ -1,0 +1,36 @@
+# One-command deploy: game server + Caddy (auto HTTPS) for front.fritas.fr.
+#
+#   cd /opt/frontfritas
+#   docker compose -f deploy/docker-compose.yml up -d --build
+#
+# Point a DNS A/AAAA record for front.fritas.fr at this VPS first. Caddy will
+# fetch a TLS certificate automatically on first start.
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      - PORT=8787
+      # - VITE_* vars are baked at build time, not here (see .env.example).
+    restart: unless-stopped
+    expose:
+      - "8787"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile.docker:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  caddy_data:
+  caddy_config:
